@@ -6,6 +6,7 @@ import {
   Wallet
 } from '@wishknish/knishio-client-js/src'
 import WalletBundle from 'src/models/WalletBundle'
+import SecureMessage from 'src/models/SecureMessage.js'
 import AuthToken from '@wishknish/knishio-client-js/src/AuthToken'
 import BaseException from '@wishknish/knishio-client-js/src/exception/BaseException'
 import { KNISHIO_SETTINGS } from 'src/libraries/constants/knishio'
@@ -42,10 +43,54 @@ const stateObj = {
   userRoles: false,
   parentApp: null,
   favoriteCards: {},
-  auth2fa: null
+  auth2fa: null,
+
+  messages: null,
+  pagination: null
 }
 
 const actionsObj = {
+  /**
+   * Creates a new message.
+   *
+   * @param {string} message The content of the message.
+   * @returns {Promise<void>}
+   */
+  async createMessage (message) {
+    try {
+      const messageObject = new SecureMessage({})
+      await messageObject.create(this.client, { message, author: this.profile.publicName })
+    } catch (error) {
+      console.error('Error creating message:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Retrieves messages from the ledger with specified offset and limit.
+   *
+   * @param {number} [offset=1] Offset from the beginning of messages.
+   * @param {number} [limit=10] Maximum number of messages to retrieve.
+   * @returns {Promise<void>}
+   */
+  async getMessages (offset, limit) {
+    try {
+      const messageObject = new SecureMessage({})
+      await messageObject.queryMeta(this.client, { offset, limit })
+
+      this.messages = messageObject.messages.map((msg) => ({
+        ...msg,
+        myMessage: msg.author === this.profile.publicName
+      })).reverse()
+
+      console.log(this.messages)
+
+      this.pagination = messageObject.pagination
+    } catch (error) {
+      console.error('Error getting messages:', error)
+      throw error
+    }
+  },
   /**
    * Connects to the Knish.IO servers.
    * @param {string[]} endpointUris - Array of endpoint URIs.
@@ -472,6 +517,22 @@ const actionsObj = {
     }
 
     return validServers
+  },
+  async loadMessages () {
+    try {
+      const metaType = 'SecureMessage'
+      const result = await this.client.queryMeta(
+        { metaType, key: 'message' })
+
+      // Підготувати масив для збереження всіх повідомлень
+      const allMessages = []
+
+      console.log(result)
+      console.log(allMessages) // Виведення всіх повідомлень у консоль
+      return allMessages // Опціонально, повертаємо маси
+    } catch (error) {
+      console.error('Помилка при завантаженні повідомлень:', error)
+    }
   }
 }
 
